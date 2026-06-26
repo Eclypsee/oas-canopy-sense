@@ -93,6 +93,8 @@ void loop() {
     }
 
 
+    delay(50);
+
     XM125Radar::RadarMeasurement m2 = radar2.measure();
 
     int32_t raw_mm2 = m2.p0_mm;
@@ -131,5 +133,5 @@ void loop() {
     //     m.total_ms
     // );
 
-    delay(10);
+    delay(20);
 }

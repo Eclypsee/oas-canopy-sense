@@ -12,7 +12,7 @@ bool XM125Radar::begin() {
 
     sensor.setCommand(SFE_XM125_DISTANCE_RESET_MODULE);
     sensor.busyWait();
-    delay(50);
+    delay(1000);
 
     uint32_t errorStatus = 0;
     sensor.getDetectorErrorStatus(errorStatus);
@@ -89,24 +89,22 @@ XM125Radar::RadarMeasurement XM125Radar::measure() {
 
     uint32_t t0 = millis();
     m.retCode = detectorReadingSetupFast();
+    sensor.busyWait();
     m.t_setup = millis() - t0;
 
     if (m.retCode == 0) {
+        error_count = 0;
         t0 = millis();
         sensor.getNumberDistances(m.distances);
         m.t_num = millis() - t0;
     }else {
         error_count++;
 
-        Serial.printf("XM125 setup failed, retCode=%d, error_count=%u, address=0x%02X\n",
-                    m.retCode, error_count, address);
+        Serial.printf("XM125 setup/read failed, retCode=%d, error_count=%u, address=0x%02X\n",
+                  m.retCode, error_count, address);
 
         if (error_count >= MAX_ERROR_COUNT) {
             Serial.printf("XM125 stuck, resetting module, address=0x%02X\n", address);
-
-            sensor.setCommand(SFE_XM125_DISTANCE_RESET_MODULE);
-            sensor.busyWait();
-            delay(50);
 
             begin();          // re-apply configuration
             error_count = 0;
@@ -116,6 +114,7 @@ XM125Radar::RadarMeasurement XM125Radar::measure() {
         return m;
     }
 
+    sensor.busyWait();
     if (m.retCode == 0 && m.distances > 0) {
         uint32_t rawDistance = 0;
         int32_t rawStrength = 0;
