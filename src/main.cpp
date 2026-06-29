@@ -18,7 +18,10 @@ float filtered_mm = -1.0;
 float filtered_mm2 = -1.0;
 const float alpha = 0.3;
 const float alpha2 = 0.3;
+uint32_t tInit = 0;
 
+uint16_t lowbound = 350;
+uint16_t highbound = 450;
 
 void i2cScan(TwoWire& wireBus){
     byte error;
@@ -67,12 +70,13 @@ void setup() {
         delay(1000);
     }
 
-    while (!radar2.begin()) {
-        Serial.println("Radar 2 failed");
-        delay(1000);
-    }
+    // while (!radar2.begin()) {
+    //     Serial.println("Radar 2 failed");
+    //     delay(1000);
+    // }
 
     OLED_init();
+    tInit = millis();
 }
 void loop() {
     XM125Radar::RadarMeasurement m = radar1.measure();
@@ -86,8 +90,13 @@ void loop() {
         } else {
             filtered_mm = alpha * raw_mm + (1.0 - alpha) * filtered_mm;
         }
-
-        snprintf(buf, sizeof(buf), "%d", (int32_t)(filtered_mm + 0.5));
+        if(filtered_mm>lowbound && filtered_mm<highbound){
+            snprintf(buf, sizeof(buf), "Good|%d", (int32_t)(filtered_mm + 0.5));
+        }else if(filtered_mm<=lowbound){
+            snprintf(buf, sizeof(buf), "Low |%d", (int32_t)(filtered_mm + 0.5));
+        }else if(filtered_mm>=highbound){
+            snprintf(buf, sizeof(buf), "High|%d", (int32_t)(filtered_mm + 0.5));
+        }
     } else {
         snprintf(buf, sizeof(buf), "NOPEAK");
     }
@@ -95,42 +104,59 @@ void loop() {
 
     delay(50);
 
-    XM125Radar::RadarMeasurement m2 = radar2.measure();
+    // XM125Radar::RadarMeasurement m2 = radar2.measure();
 
-    int32_t raw_mm2 = m2.p0_mm;
-    char buf2[32];
+    // int32_t raw_mm2 = m2.p0_mm;
+    // char buf2[32];
 
-    if (raw_mm2 >= 0) {
-        if (filtered_mm2 < 0) {
-            filtered_mm2 = raw_mm2;
-        } else {
-            filtered_mm2 = alpha2 * raw_mm2 + (1.0 - alpha2) * filtered_mm2;
-        }
+    // if (raw_mm2 >= 0) {
+    //     if (filtered_mm2 < 0) {
+    //         filtered_mm2 = raw_mm2;
+    //     } else {
+    //         filtered_mm2 = alpha2 * raw_mm2 + (1.0 - alpha2) * filtered_mm2;
+    //     }
 
-        snprintf(buf2, sizeof(buf2), "%d", (int32_t)(filtered_mm2 + 0.5));
-    } else {
-        snprintf(buf2, sizeof(buf2), "NOPEAK");
-    }
+    //     snprintf(buf2, sizeof(buf2), "%d", (int32_t)(filtered_mm2 + 0.5));
+    // } else {
+    //     snprintf(buf2, sizeof(buf2), "NOPEAK");
+    // }
 
+    uint32_t tNow = millis()-tInit;
 
     char buffer[64];
-    snprintf(buffer, sizeof(buffer), "%s|%s", buf, buf2);
+    snprintf(buffer, sizeof(buffer), "%s", buf/*, buf2*/);
     OLED_writeText(buffer, 4, u8x8_font_chroma48medium8_r);
 
-    // Serial.printf(
-    //     "%lu,%lu,%lu,%lu,%ld,%ld,%ld,%lu,%lu,%lu,%lu,%lu\n",
-    //     m.frame_id,
-    //     m.loop_start_ms,
-    //     m.retCode,
-    //     m.distances,
-    //     m.p0_mm,
-    //     (int32_t)(filtered_mm + 0.5),
-    //     m.p0_strength,
-    //     m.t_setup,
-    //     m.t_num,
-    //     m.t_p0dist,
-    //     m.t_p0str,
-    //     m.total_ms
+    Serial.printf("%lu,0x%02X,%lu,%lu,%lu,%ld,%ld,%ld,%lu,%lu,%lu,%lu,%lu,%d,\n",
+        m.frame_id,
+        m.i2cAddress,
+        m.loop_start_ms,
+        m.retCode,
+        m.distances,
+        m.p0_mm,
+        (int32_t)(filtered_mm + 0.5),
+        m.p0_strength,
+        m.t_setup,
+        m.t_num,
+        m.t_p0dist,
+        m.t_p0str,
+        m.total_ms,
+        tNow
+    );
+    // Serial.printf("%lu,0x%02X,%lu,%lu,%lu,%ld,%ld,%ld,%lu,%lu,%lu,%lu,%lu,\n",
+    //     m2.frame_id,
+    //     m2.i2cAddress,
+    //     m2.loop_start_ms,
+    //     m2.retCode,
+    //     m2.distances,
+    //     m2.p0_mm,
+    //     (int32_t)(filtered_mm2 + 0.5),
+    //     m2.p0_strength,
+    //     m2.t_setup,
+    //     m2.t_num,
+    //     m2.t_p0dist,
+    //     m2.t_p0str,
+    //     m2.total_ms
     // );
 
     delay(20);

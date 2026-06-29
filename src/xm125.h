@@ -38,6 +38,7 @@ public:
     );
 
     struct RadarMeasurement {
+        uint8_t i2cAddress;
         uint32_t frame_id;
         uint32_t loop_start_ms;
         uint32_t retCode;

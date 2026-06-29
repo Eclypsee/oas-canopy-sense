@@ -12,5 +12,5 @@ void OLED_init(){
 void OLED_writeText(const char* t, uint8_t yoffset, const uint8_t* font) {
     u8x8.clearDisplay();
     u8x8.setFont(font);
-    u8x8.drawString(0, yoffset, t);
+    u8x8.draw2x2String(0, yoffset, t);
 }

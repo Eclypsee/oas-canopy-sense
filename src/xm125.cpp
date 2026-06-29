@@ -74,6 +74,7 @@ int32_t XM125Radar::detectorReadingSetupFast() {
 XM125Radar::RadarMeasurement XM125Radar::measure() {
     RadarMeasurement m;
 
+    m.i2cAddress=address;
     m.frame_id = frame_id++;
     m.loop_start_ms = millis();
 
