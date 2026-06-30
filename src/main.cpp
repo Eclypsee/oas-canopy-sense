@@ -12,12 +12,24 @@
 #define RADAR_SCL 5
 TwoWire RadarWire = TwoWire(1);
 XM125Radar radar1(0x51,RadarWire);
-XM125Radar radar2(SFE_XM125_I2C_ADDRESS,RadarWire);
+// XM125Radar radar2(SFE_XM125_I2C_ADDRESS,RadarWire);
 
 float filtered_mm = -1.0;
-float filtered_mm2 = -1.0;
-const float alpha = 0.3;
-const float alpha2 = 0.3;
+// float filtered_mm2 = -1.0;
+
+// For median filtering
+// ---------------------
+const int num_raws = 3;     // should be odd numbers only
+float prev_median = -1.0;
+float curr_median = -1.0;
+float median_ema_mm = -1.0;
+float prev_raws[num_raws];
+int raw_index = 0;
+int sample_count = 0;
+// ---------------------
+
+const float alpha = 0.15;
+// const float alpha2 = 0.3;
 uint32_t tInit = 0;
 
 uint16_t lowbound = 350;
@@ -25,7 +37,7 @@ uint16_t highbound = 450;
 
 void i2cScan(TwoWire& wireBus){
     byte error;
-  int found = 0;
+  int found = 0;  
 
   Serial.println("Scanning...");
 
@@ -52,6 +64,31 @@ void i2cScan(TwoWire& wireBus){
   }
 
   Serial.println();
+}
+
+float getMedian(float raws[num_raws]) {
+    // Copy of array to work on
+    float temp[num_raws];
+    for(int i = 0; i < num_raws; i++)
+    {
+        temp[i] = raws[i];
+    }
+
+    // Sort in ascending order
+    for(int i = 0; i < (num_raws - 1); i++)
+    {
+        for(int j = i + 1; j < num_raws; j++)
+        {
+            if(temp[j] < temp[i])
+            {
+                float swap = temp[i];
+                temp[i] = temp[j];
+                temp[j] = swap;
+            }
+        }
+    }
+
+    return temp[num_raws / 2]; // the median
 }
 
 void setup() {
@@ -84,6 +121,9 @@ void loop() {
     int32_t raw_mm = m.p0_mm;
     char buf[32];
 
+    /*
+    One stage EMA filter
+
     if (raw_mm >= 0) {
         if (filtered_mm < 0) {
             filtered_mm = raw_mm;
@@ -100,6 +140,30 @@ void loop() {
     } else {
         snprintf(buf, sizeof(buf), "NOPEAK");
     }
+    */
+
+    // (Median of last num_raws) + (EMA of median filter)
+    if(raw_mm >= 0)
+    {
+        // Circular/ring buffer
+        prev_raws[raw_index] = raw_mm;
+        raw_index = (raw_index + 1) % num_raws;
+
+        if(sample_count < num_raws)
+        {
+            median_ema_mm = raw_mm;
+            sample_count++;
+        } else {
+            curr_median = getMedian(prev_raws);
+            median_ema_mm = alpha * curr_median + (1 - alpha) * median_ema_mm;
+            // prev_median = curr_median;  probably don't need this
+        }
+
+        snprintf(buf, sizeof(buf), "%d mm", (int32_t)(median_ema_mm + 0.5));
+    } else {
+        snprintf(buf, sizeof(buf), "NO PEAK");
+    }
+
 
 
     delay(50);
@@ -134,7 +198,7 @@ void loop() {
         m.retCode,
         m.distances,
         m.p0_mm,
-        (int32_t)(filtered_mm + 0.5),
+        (int32_t)(median_ema_mm + 0.5),
         m.p0_strength,
         m.t_setup,
         m.t_num,

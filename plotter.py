@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 import time 
 
-PORT = 'COM4'
+PORT = 'COM5'
 BAUD_RATE = 115200
 
 MAX_POINTS = 50
@@ -13,6 +13,11 @@ frameIDOffset = 0
 
 tnow = 0
 tnowOffset = 0
+
+# Extra filtering (average of last 5)
+LAST_N = 5
+filtered_values = []
+alpha = 0.7
 
 ser = serial.Serial(PORT, BAUD_RATE, timeout=1)
 
@@ -26,8 +31,8 @@ ax.set_ylim(150, 1600)
 ax.yaxis.set_major_locator(MultipleLocator(100))
 ax.xaxis.set_major_locator(MultipleLocator(5))
 ax.set_xlabel("Sample")
-ax.set_ylabel("Distance (mm)")
-ax.set_title("XM125 Live Distance - Two Radars")
+ax.set_ylabel("Median + EMA Distance (mm)")
+ax.set_title("XM125 Live Median(3) + EMA Distance")
 
 text_display = ax.text(
     0.02, 0.95, "",
@@ -40,18 +45,21 @@ print("Listening to serial...")
 
 def get_radar(addr):
     if addr not in radars:
-        line, = ax.plot([], [], label=f"Radar {addr}")
+        line, = ax.plot([], [], 'b-', label=f"Radar {addr}")
+        # extra_line, = ax.plot([],[],'r--', label=f"Radar {addr} Hybrid")
         radars[addr] = {
             "frames": [],
             "distances": [],
+            # "extra_distances": [],
             "line": line,
+            # "extra_line": extra_line,
             "latest": None
         }
         ax.legend()
 
     return radars[addr]
 
-log_file = open("serial.log", "a", buffering=1)  # line-buffered
+log_file = open("serial_medianEMA_partial.log", "a", buffering=1)  # line-buffered
 
 while True:
     try:
@@ -81,29 +89,46 @@ while True:
         
         tnow = int(parts[13])+tnowOffset
 
-        if raw_mm <= 0 or not (150 <= raw_mm <= 1600):
-            text_display.set_text(f"Radar {addr}: No Peak Detected")
+        # # Extra filtering before logging
+        # if raw_mm < 0 or len(filtered_values) == 0:
+        #     extra_filtered_mm = filtered_mm
+        #     filtered_values.append(filtered_mm)
+        # else:
+        #     avg_n_filtered = sum(filtered_values[-LAST_N:]) / len(filtered_values[-LAST_N:])
+        #     extra_filtered_mm = int(alpha * avg_n_filtered + (1 - alpha) * filtered_mm)
+        #     filtered_values.append(filtered_mm)
 
         radar = get_radar(addr)
 
         radar["frames"].append(frame_id)
-        radar["distances"].append(filtered_mm)
         radar["latest"] = filtered_mm
+        radar["distances"].append(filtered_mm)
+        # radar["extra_distances"].append(extra_filtered_mm)
 
         if len(radar["frames"]) > MAX_POINTS:
             radar["frames"] = radar["frames"][-MAX_POINTS:]
             radar["distances"] = radar["distances"][-MAX_POINTS:]
+            # radar["extra_distances"] = radar["extra_distances"][-MAX_POINTS:]
 
         x = range(len(radar["distances"]))
+
         radar["line"].set_xdata(x)
         radar["line"].set_ydata(radar["distances"])
 
-        display = ""
-        for a, r in radars.items():
-            if r["latest"] is not None:
-                display += f"Radar {a}: {r['latest']} mm\n"
+        # radar["extra_line"].set_xdata(x)
+        # radar["extra_line"].set_ydata(radar["extra_distances"])
 
-        text_display.set_text(display.strip())
+        display = ""
+
+        if raw_mm <= 0 or not (150 <= raw_mm <= 1600):
+            text_display.set_text(f"Radar {addr}: No Peak Detected")
+        else:
+            for a, r in radars.items():
+                if r["latest"] is not None:
+                    display += f"Radar {a}: {r['latest']} mm\n"
+            
+            text_display.set_text(display.strip())
+
 
         ax.relim()
         ax.autoscale_view()
@@ -111,8 +136,8 @@ while True:
 
         plt.pause(0.01)
         if log_file.tell() == 0:
-            log_file.write("frame id | address | retcode | numDistances | raw_mm | filtered_mm | p0 str | time now")
-        log_file.write(f"{frame_id},{addr},{retcode},{distances},{raw_mm},{filtered_mm},{p0_str},{tnow},\n")
+            log_file.write("frame id,address,retcode,numDistances,raw_mm,medianEMA_mm,p0 str,time now\n")
+        log_file.write(f"{frame_id},{addr},{retcode},{distances},{raw_mm},{filtered_mm},{p0_str},{tnow}\n")
 
     except serial.SerialException:
         frameIDOffset=frame_id+1
