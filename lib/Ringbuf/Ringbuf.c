@@ -50,14 +50,29 @@ int Ring_peek(Ring*r, int*dat){
 }
 
 void Ring_show(Ring *r){
-    if(Ring_isEmpty(r)) return;
+    int* arr = malloc(sizeof(int)*r->size);
+    if(!arr)return;
+    int asdf = Ring_return(r, arr);
+    if(asdf!=0){
+        for(int i=0;i<asdf;i++)
+            printf("%d\n", arr[i]);
+    }
+    free(arr);
+}
+
+int Ring_return(Ring *r, int*array){//gets the ring buffer array in fifo order, returns size of data
+    if(Ring_isEmpty(r)) return 0;
+    int idx = 0;
     uint16_t i = r->oldest;
     while(i!=r->newest){
-        printf("%d\n", r->data[i]);
+        array[idx]=r->data[i];
         i=(i+1)%r->size;
+        idx++;
     }
-    printf("%d\n", r->data[r->newest]);
+    array[idx]=r->data[r->newest];
+    return idx+1;
 }
+
 void Ring_clean(Ring*r){
     if(!r)return;
     free(r->data);

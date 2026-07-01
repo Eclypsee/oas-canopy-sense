@@ -27,5 +27,6 @@ int Ring_isEmpty(Ring *r);
 
 /* Debug */
 void Ring_show(Ring *r);
+int Ring_return(Ring *r, int*array);
 
 #endif /* RINGBUF_H */
