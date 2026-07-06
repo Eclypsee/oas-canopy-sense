@@ -14,7 +14,7 @@ frameIDOffset = 0
 tnow = 0
 tnowOffset = 0
 
-# Extra filtering (average of last 5)
+# Extra filtering (average of last 5) [NOT USING]
 LAST_N = 5
 filtered_values = []
 alpha = 0.7
@@ -59,7 +59,7 @@ def get_radar(addr):
 
     return radars[addr]
 
-log_file = open("serial_medianEMA_partial.log", "a", buffering=1)  # line-buffered
+log_file = open("yo.log", "a", buffering=1)  # line-buffered
 
 while True:
     try:
@@ -74,7 +74,7 @@ while True:
         # CSV:
         # frame,address,loop_start,retCode,distances,raw_mm,filtered_mm,strength,...
         # trailing comma creates an empty last item, so accept 14 or 13
-        if len(parts) < 14:
+        if len(parts) < 15:
             continue
 
         frame_id = int(parts[0])+frameIDOffset
@@ -84,10 +84,11 @@ while True:
         retcode = int(parts[3])
         distances = int(parts[4])
         raw_mm = int(parts[5])
-        filtered_mm = int(parts[6])
-        p0_str = int(parts[7])
+        filtered_mm = float(parts[6])
+        filtered_in = float(parts[7])
+        p0_str = int(parts[8])
         
-        tnow = int(parts[13])+tnowOffset
+        tnow = int(parts[14])+tnowOffset
 
         # # Extra filtering before logging
         # if raw_mm < 0 or len(filtered_values) == 0:
@@ -136,8 +137,8 @@ while True:
 
         plt.pause(0.01)
         if log_file.tell() == 0:
-            log_file.write("frame id,address,retcode,numDistances,raw_mm,medianEMA_mm,p0 str,time now\n")
-        log_file.write(f"{frame_id},{addr},{retcode},{distances},{raw_mm},{filtered_mm},{p0_str},{tnow}\n")
+            log_file.write("frame id,address,retcode,numDistances,raw_mm,medianEMA_mm,medianEMA_in,p0 str,time now\n")
+        log_file.write(f"{frame_id},{addr},{retcode},{distances},{raw_mm},{filtered_mm},{filtered_in},{p0_str},{tnow}\n")
 
     except serial.SerialException:
         frameIDOffset=frame_id+1

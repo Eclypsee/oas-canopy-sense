@@ -2,6 +2,7 @@
 #include <Wire.h>
 #include "xm125.h"
 #include "OLED.h"
+#include "HeightIndicator.h"
 #include "driver/gpio.h"
 
 
@@ -14,15 +15,16 @@ TwoWire RadarWire = TwoWire(1);
 XM125Radar radar1(0x51,RadarWire);
 // XM125Radar radar2(SFE_XM125_I2C_ADDRESS,RadarWire);
 
-float filtered_mm = -1.0;
+// Variables for old filtering [NOT USING]
+// float filtered_mm = -1.0;
 // float filtered_mm2 = -1.0;
 
-// For median filtering
+// For median filtering [USING]
 // ---------------------
 const int num_raws = 3;     // should be odd numbers only
-float prev_median = -1.0;
 float curr_median = -1.0;
 float median_ema_mm = -1.0;
+float median_ema_inches = -1.0;
 float prev_raws[num_raws];
 int raw_index = 0;
 int sample_count = 0;
@@ -31,9 +33,6 @@ int sample_count = 0;
 const float alpha = 0.15;
 // const float alpha2 = 0.3;
 uint32_t tInit = 0;
-
-uint16_t lowbound = 350;
-uint16_t highbound = 450;
 
 void i2cScan(TwoWire& wireBus){
     byte error;
@@ -113,7 +112,13 @@ void setup() {
     // }
 
     OLED_init();
+    Serial.println("OLED INIT DONE");
+    delay(50);
+    heightIndicatorInit();
+    Serial.println("HEIGHT INDICATOR INIT DONE");
+    delay(50);
     tInit = millis();
+    Serial.println("RETRIEVED TIME INIT");
 }
 void loop() {
     XM125Radar::RadarMeasurement m = radar1.measure();
@@ -156,15 +161,15 @@ void loop() {
         } else {
             curr_median = getMedian(prev_raws);
             median_ema_mm = alpha * curr_median + (1 - alpha) * median_ema_mm;
-            // prev_median = curr_median;  probably don't need this
         }
 
-        snprintf(buf, sizeof(buf), "%d mm", (int32_t)(median_ema_mm + 0.5));
+        // Convert to inches
+        median_ema_inches = median_ema_mm / 25.4;
+
+        snprintf(buf, sizeof(buf), "%.3f", median_ema_inches /*(int32_t)(median_ema_mm + 0.5)*/);
     } else {
         snprintf(buf, sizeof(buf), "NO PEAK");
     }
-
-
 
     delay(50);
 
@@ -190,15 +195,17 @@ void loop() {
     char buffer[64];
     snprintf(buffer, sizeof(buffer), "%s", buf/*, buf2*/);
     OLED_writeText(buffer, 4, u8x8_font_chroma48medium8_r);
+    heightIndicatorUpdate(median_ema_inches);
 
-    Serial.printf("%lu,0x%02X,%lu,%lu,%lu,%ld,%ld,%ld,%lu,%lu,%lu,%lu,%lu,%d,\n",
+    Serial.printf("%lu,0x%02X,%lu,%lu,%lu,%ld,%.1f,%.3f,%ld,%lu,%lu,%lu,%lu,%lu,%d,\n",
         m.frame_id,
         m.i2cAddress,
         m.loop_start_ms,
         m.retCode,
         m.distances,
         m.p0_mm,
-        (int32_t)(median_ema_mm + 0.5),
+        median_ema_mm,
+        median_ema_inches,
         m.p0_strength,
         m.t_setup,
         m.t_num,
@@ -207,6 +214,8 @@ void loop() {
         m.total_ms,
         tNow
     );
+
+    // For second SparkFun XM125 [NOT AVAILABLE YET]
     // Serial.printf("%lu,0x%02X,%lu,%lu,%lu,%ld,%ld,%ld,%lu,%lu,%lu,%lu,%lu,\n",
     //     m2.frame_id,
     //     m2.i2cAddress,
