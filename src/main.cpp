@@ -30,7 +30,12 @@ int raw_index = 0;
 int sample_count = 0;
 // ---------------------
 
-const float alpha = 0.15;
+// For height indicator
+// ----------------------
+int height_level = -1;
+// ----------------------
+
+const float alpha = 0.3;
 // const float alpha2 = 0.3;
 uint32_t tInit = 0;
 
@@ -192,12 +197,12 @@ void loop() {
 
     uint32_t tNow = millis()-tInit;
 
-    char buffer[64];
+    char buffer[64];   // expand size for two radars [WAITING FOR ADDITIONAL RADARS]
     snprintf(buffer, sizeof(buffer), "%s", buf/*, buf2*/);
     OLED_writeText(buffer, 4, u8x8_font_chroma48medium8_r);
-    heightIndicatorUpdate(median_ema_inches);
+    height_level = heightIndicatorUpdate(median_ema_inches);
 
-    Serial.printf("%lu,0x%02X,%lu,%lu,%lu,%ld,%.1f,%.3f,%ld,%lu,%lu,%lu,%lu,%lu,%d,\n",
+    Serial.printf("%lu,0x%02X,%lu,%lu,%lu,%ld,%.1f,%.3f,%ld,%lu,%lu,%lu,%lu,%lu,%d,%d\n",
         m.frame_id,
         m.i2cAddress,
         m.loop_start_ms,
@@ -212,7 +217,8 @@ void loop() {
         m.t_p0dist,
         m.t_p0str,
         m.total_ms,
-        tNow
+        tNow,
+        height_level
     );
 
     // For second SparkFun XM125 [NOT AVAILABLE YET]

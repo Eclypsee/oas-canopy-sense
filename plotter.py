@@ -59,7 +59,7 @@ def get_radar(addr):
 
     return radars[addr]
 
-log_file = open("yo.log", "a", buffering=1)  # line-buffered
+log_file = open("data_logs/baseline_with_LEDs/basic_bed_full_2", "a", buffering=1)  # line-buffered
 
 while True:
     try:
@@ -74,7 +74,7 @@ while True:
         # CSV:
         # frame,address,loop_start,retCode,distances,raw_mm,filtered_mm,strength,...
         # trailing comma creates an empty last item, so accept 14 or 13
-        if len(parts) < 15:
+        if len(parts) < 16:
             continue
 
         frame_id = int(parts[0])+frameIDOffset
@@ -89,6 +89,7 @@ while True:
         p0_str = int(parts[8])
         
         tnow = int(parts[14])+tnowOffset
+        height_level = int(parts[15])
 
         # # Extra filtering before logging
         # if raw_mm < 0 or len(filtered_values) == 0:
@@ -137,8 +138,8 @@ while True:
 
         plt.pause(0.01)
         if log_file.tell() == 0:
-            log_file.write("frame id,address,retcode,numDistances,raw_mm,medianEMA_mm,medianEMA_in,p0 str,time now\n")
-        log_file.write(f"{frame_id},{addr},{retcode},{distances},{raw_mm},{filtered_mm},{filtered_in},{p0_str},{tnow}\n")
+            log_file.write("frame id,address,retcode,numDistances,raw_mm,medianEMA_mm,medianEMA_in,p0 str,time now,LED status\n")
+        log_file.write(f"{frame_id},{addr},{retcode},{distances},{raw_mm},{filtered_mm},{filtered_in},{p0_str},{tnow},{height_level}\n")
 
     except serial.SerialException:
         frameIDOffset=frame_id+1

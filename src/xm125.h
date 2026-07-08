@@ -64,7 +64,7 @@ private:
     uint32_t frame_id = 0;
 
     static constexpr uint32_t RANGE_START_MM = 200;
-    static constexpr uint32_t RANGE_END_MM = 800;
+    static constexpr uint32_t RANGE_END_MM = 1500;
     static constexpr uint32_t MAX_STEP_LENGTH = 4;
     static constexpr uint32_t MAX_PROFILE = 5;
     static constexpr uint32_t PEAK_SORTING = 1;
