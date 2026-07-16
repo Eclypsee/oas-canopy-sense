@@ -9,8 +9,8 @@
 #define OLED_SDA 17
 #define OLED_SCL 18
 
-#define RADAR_SDA 4
-#define RADAR_SCL 5
+#define RADAR_SDA 40
+#define RADAR_SCL 41
 TwoWire RadarWire = TwoWire(1);
 XM125Radar radar1(0x51,RadarWire);
 // XM125Radar radar2(SFE_XM125_I2C_ADDRESS,RadarWire);
@@ -153,7 +153,7 @@ void loop() {
     */
 
     // (Median of last num_raws) + (EMA of median filter)
-    if(raw_mm >= 0)
+    if(raw_mm >= 0 && raw_mm < 1000)
     {
         // Circular/ring buffer
         prev_raws[raw_index] = raw_mm;
@@ -172,7 +172,13 @@ void loop() {
         median_ema_inches = median_ema_mm / 25.4;
 
         snprintf(buf, sizeof(buf), "%.3f", median_ema_inches /*(int32_t)(median_ema_mm + 0.5)*/);
-    } else {
+    } 
+    else if(raw_mm >= 1000) 
+    {
+        snprintf(buf, sizeof(buf), ">= 1000!");
+    } 
+    else
+    {
         snprintf(buf, sizeof(buf), "NO PEAK");
     }
 
