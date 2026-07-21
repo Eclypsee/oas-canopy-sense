@@ -4,6 +4,7 @@
 #include "OLED.h"
 #include "driver/gpio.h"
 #include "Ringbuf.h"
+#include "PID.h"
 
 #define OLED_SDA 17
 #define OLED_SCL 18
@@ -16,7 +17,7 @@ XM125Radar radar2(SFE_XM125_I2C_ADDRESS,RadarWire);
 
 float filtered_mm = -1.0;
 float filtered_mm2 = -1.0;
-const float alpha = 0.3;
+const float alpha = 0.6;
 const float alpha2 = 0.3;
 uint32_t tInit = 0;
 
@@ -77,10 +78,12 @@ void setup() {
 
     OLED_init();
     tInit = millis();
+
+    PID_setup();
 }
 void loop() {
     XM125Radar::RadarMeasurement m = radar1.measure();
-
+    
     int32_t raw_mm = m.p0_mm;
     char buf[32];
 
@@ -101,8 +104,33 @@ void loop() {
         snprintf(buf, sizeof(buf), "NOPEAK");
     }
 
+    //PID stuff//////////////////////////////////
+    static unsigned long prevUs = millis();
+    unsigned long nowUs = millis();
 
-    delay(50);
+    if(nowUs-prevUs >= 20UL){
+        double dt = (nowUs-prevUs)/1000.0; //dt in seconds
+        prevUs = nowUs;
+        double measuredHeight = filtered_mm/25.4;//////here in inches
+        double deadband_err = targetHeightInches - measuredHeight;
+
+        const double HEIGHT_DEADBAND = 0.15;//inches
+        if (fabs(deadband_err) <= HEIGHT_DEADBAND) {//deadband 
+            commandedSpeed = 0.0;
+            integral = 0.0;
+        }else{
+        double pidPercent = PID(kp, ki, kd, targetHeightInches, measuredHeight, &previousError, &integral, dt);
+        commandedSpeed = (pidPercent/100.0)*MAX_SPEED;
+        commandedSpeed = applySpeedLimit(commandedSpeed);
+        }
+        stepper.setSpeed(commandedSpeed);
+    }
+    ////////////////////////////////////////////////
+
+  // Call this as frequently as possible.
+  stepper.runSpeed();
+
+    delay(10);
 
     // XM125Radar::RadarMeasurement m2 = radar2.measure();
 
